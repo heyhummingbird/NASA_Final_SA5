@@ -1,0 +1,22 @@
+---
+- hosts: dov
+  remote_user: root
+  tasks:
+  - name: install OpenLDAP client
+    yum:
+      name: openldap-clients,pam,pam-devel,pam_ldap,nss-pam-ldapd
+      state: latest
+
+  - name: update authconfig
+    command: authconfig --enableldap --enableldapauth --ldapserver=localhost --ldapbasedn="dc=ldapserver,dc=com" --enablemkhomedir --update
+
+  - name: restart nslcd
+    service:
+      name: nslcd
+      state: restarted
+      enabled: yes
+
+  - name: check passwd
+    command: getent passwd
+    register: result
+  - debug: var=result.stdout_lines

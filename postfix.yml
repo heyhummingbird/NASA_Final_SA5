@@ -1,0 +1,147 @@
+---
+- name: Postfix main.cf to ms1
+  hosts: ms1
+  vars:
+    variable_host: ms1
+  tasks:
+    - template: 
+        src: template/main.cf.j2
+        dest: /etc/postfix/main.cf
+
+- name: Postfix main.cf to ms2
+  hosts: ms2
+  vars:
+    variable_host: ms2
+  tasks:
+    - template: 
+        src: template/main.cf.j2
+        dest: /etc/postfix/main.cf
+
+- name: Postfix
+  hosts: ms1:ms2
+  tasks: 
+    - name: configure TLS - master.cf
+      template:
+        src: template/master.cf.j2
+        dest: /etc/postfix/master.cf
+
+    - name: configure TLS - firewall add service
+      command: "{{item.name}}"
+      with_items:
+        - { name: 'firewall-cmd --permanent --add-service=smtps'}
+        - { name: 'firewall-cmd --permanent --add-service=smtp'}
+
+    - name: configure TLS - firewall reload
+      command: firewall-cmd --reload
+
+    - name: download get-pip
+      uri:
+        url: https://bootstrap.pypa.io/get-pip.py
+        method: GET
+        return_content: yes
+        dest: /root/get-pip.py
+
+    - name: install pip
+      command: python /root/get-pip.py
+      register: log
+
+    - debug: var=log.stdout_lines
+
+    - name: install pexpect for expect ansible module below
+      command: pip install pexpect
+
+    - name: establish key
+      expect:
+        command: openssl req -new -x509 -nodes -out /etc/postfix/smtpd.pem -keyout /etc/postfix/smtpd.pem -days 3650
+        responses:
+          Country Name: "TW"
+          State or Province Name: "R.O.C"
+          Locality Name: "Taipei"
+          Organization Name: "NTU"
+          Organizational Unit Name: "CSIE"
+          Common Name: "NASA2017"
+          Email Address: ""        
+
+    - name: install sasl
+      yum: 
+        name: "{{item.name}}"
+        state: latest
+      with_items:
+        - { name: 'cyrus-sasl-plain'}
+        - { name: 'cyrus-sasl'}
+        - { name: 'cyrus-sasl-md5'}
+
+    - name: restart saslauthd
+      command: systemctl restart saslauthd
+
+    - name: enable saslauthd
+      command: systemctl enable saslauthd
+
+    - name: enable postfix
+      command: systemctl enable postfix
+
+    - name: postfix restart
+      command: postfix reload
+
+- name: postgrey
+  hosts: ms1:ms2
+  tasks:
+    - name: install epel-release
+      yum:
+        name: epel-release
+        state: latest
+
+    - name: install postgrey
+      yum:
+        name: postgrey
+        state: latest
+
+    - name: enable postgrey
+      command: systemctl enable postgrey
+
+    - name: start postgrey
+      command: systemctl start postgrey
+
+    - name: whitelist
+      template:
+        src: template/postgrey_whitelist_clients.local
+        dest: /etc/postfix/postgrey_whitelist_clients.local
+    
+    - name: restart postgrey
+      command: systemctl restart postgrey
+
+    - name: restart postfix
+      command: systemctl restart postfix 
+
+
+- name: f2b
+  hosts: ms1:ms2
+  tasks:
+    - name: install package
+      yum:
+        name: fail2ban
+        state: latest
+
+    - name: add ssh rule
+      template:
+        src: template/f2b/sshd.local.j2
+        dest: /etc/fail2ban/jail.d/sshd.local
+
+    - name: add postfix rule
+      template:
+        src: template/f2b/postfix.local.j2
+        dest: /etc/fail2ban/jail.d/postfix.local
+
+    - name: enable fail2ban
+      command: systemctl enable fail2ban
+
+    - name: start fail2ban
+      command: systemctl restart fail2ban
+
+    - name: show result
+      command: fail2ban-client status
+      register: result
+
+    - name: print result
+      debug:
+        msg: "{{ result.stdout_lines }}"

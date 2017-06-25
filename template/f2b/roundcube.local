@@ -1,0 +1,9 @@
+[roundcube]
+enabled = true
+port = http, https
+action = iptables-multiport[name=roundcube, port="http,https"]
+filter = roundcube-auth
+logpath = /var/log/roundcubemail/userlogins.log
+maxretry = 5
+findtime = 600
+bantime = 3600

@@ -1,0 +1,32 @@
+---
+- hosts: dov
+  remote_user: root
+  vars_prompt:
+    - name: "confirm"
+      prompt: "Already installed. Move installer ?"
+      private: no
+
+  tasks:
+  - name: move installer to other place
+    command: mv /usr/share/roundcubemail/installer /root
+    when: confirm == "yes"
+  - name: move installer back
+    command: mv /root/installer /usr/share/roundcubemail
+    when: confirm == "no"
+
+  - name: add roundcube rule
+    template:
+      src: template/f2b/roundcube.local
+      dest: /etc/fail2ban/jail.d/roundcube.local
+  - name: add roundcube filter
+    template:
+      src: template/f2b/roundcube-auth.conf
+      dest: /etc/fail2ban/filter.d/roundcube-auth.conf
+  - name: add empty file
+    file: 
+      path: /var/log/roundcubemail/userlogins.log
+      state: touch
+  - name: restart fail2ban
+    service:
+      name: fail2ban
+      state: restarted

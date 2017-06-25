@@ -1,0 +1,9 @@
+[postfix]
+enabled = true
+filter = postfix
+port = smtps
+action = iptables[name=postfix, port=smtps, protocol=tcp]
+logpath = /var/log/secure
+maxretry = 5
+findtime = 600
+bantime = 3600

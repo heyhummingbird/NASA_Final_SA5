@@ -1,0 +1,82 @@
+---
+
+- include: check.yml send=ms1 reci_user=newuser5@nasa-final-15.csie.ntu.edu.tw num=1
+
+- include: check.yml send=ms2 reci_user=newuser5@nasa-final-15.csie.ntu.edu.tw num=2  
+
+- include: check.yml send=ms1 reci_user=newuser5@ms2.nasa-final-15.csie.ntu.edu.tw num=3
+
+- include: check.yml send=ms2 reci_user=newuser5@ms1.nasa-final-15.csie.ntu.edu.tw num=4
+
+
+- name: stop ms1
+  hosts: ms1
+  tasks:
+    - command: systemctl stop postfix
+    - shell: systemctl status postfix -l | tail -n 3
+      register: log
+    - name: postfix stopped
+      debug:
+        var=log.stdout_lines
+
+- name: without ms1
+  hosts: csie10
+  tasks:
+    - name: send mail
+      shell: echo "" | mail -s "test 5" newuser5@nasa-final-15.csie.ntu.edu.tw
+
+- name: postfix log
+  hosts: ms2
+  tasks:
+    - shell: systemctl status postfix -l | tail -n 5
+      register: log
+    - name: postfix status
+      debug:
+        var=log.stdout_lines
+
+- name: restart ms1
+  hosts: ms1
+  tasks:
+    - command: systemctl restart postfix
+    - shell: systemctl status postfix -l | tail -n 3
+      register: log
+    - name: postfix after restart
+      debug:
+        var=log.stdout_lines
+
+- name: stop ms2
+  hosts: ms2
+  tasks:
+    - command: systemctl stop postfix
+    - shell: systemctl status postfix -l | tail -n 3
+      register: log
+    - name: postfix stopped
+      debug:
+        var=log.stdout_lines
+
+- name: without ms2
+  hosts: csie10
+  tasks:
+    - name: send mail
+      shell: echo "" | mail -s "test 6" newuser5@nasa-final-15.csie.ntu.edu.tw
+
+- name: postfix log
+  hosts: ms1
+  tasks:
+    - shell: systemctl status postfix -l | tail -n 5
+      register: log
+    - name: postfix status 
+      debug:
+        var=log.stdout_lines
+
+- name: restart ms2
+  hosts: ms2
+  tasks:
+    - command: systemctl restart postfix
+    - shell: systemctl status postfix -l | tail -n 3
+      register: log
+    - name: postfix after restart
+      debug:
+        var=log.stdout_lines
+
+

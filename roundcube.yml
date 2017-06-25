@@ -1,0 +1,87 @@
+---
+- hosts: dov
+  remote_user: root
+  tasks:
+  - name: install roundcube, mariadb
+    yum:
+      name: roundcubemail,mariadb,mariadb-server,php-mysql
+
+  - name: modify roundcubemail.conf
+    template:
+      src: template/roundcube/roundcubemail.conf
+      dest: /etc/httpd/conf.d/roundcubemail.conf 
+
+  - name: start mariadb
+    service:
+      name: mariadb
+      state: started
+      enabled: yes
+  - name: mariadb status
+    command: systemctl status mariadb -l
+    register: mariadblog
+  - debug: var=mariadblog.stdout_lines
+
+  - name: restart httpd
+    service:
+      name: httpd
+      state: restarted
+      enabled: yes
+  - name: httpd status
+    command: systemctl status httpd -l
+    register: httpdlog
+  - debug: var=httpdlog.stdout_lines
+
+  - name: copy config to roundcube
+    template:
+      src: template/roundcube/config.inc.php
+      dest: /etc/roundcubemail/
+  - name: copy default config to roundcube
+    template:
+      src: template/roundcube/defaults.inc.php
+      dest: /etc/roundcubemail/
+
+  - name: initialize mariadb
+    expect:
+      command: mysql_secure_installation
+      responses:
+        Enter current password for root: ""
+        Set root password: "n"
+        Change the root password: "n"
+        Remove anonymous users: "Y"
+        Disallow root login remotely: "n"
+        Remove test database and access to it: "n"
+        Reload privilege tables now: "Y"
+
+  - name: create a document in mysql
+    expect:
+      command: mysql -u root -p
+      responses:
+        Enter password: ""
+        MariaDB: "create database roundcubemail; create user 'roundcube'@'localhost' identified by 'nasa2017sa5'; show grants for 'roundcube'@'localhost'; grant all on roundcubemail.* to 'roundcube'@'localhost'; flush privileges; exit;"
+ 
+  - name: establish key
+    expect:
+      command: make dovecot-cert.pem
+      chdir: /etc/pki/tls/certs
+      responses:
+        Country Name: "TW"
+        State or Province Name: "R.O.C"
+        Locality Name: "Taipei"
+        Organization Name: "NTU"
+        Organizational Unit Name: "CSIE"
+        Common Name: "NASA2017"
+        Email Address: ""        
+  
+  - name: move key
+    command: mv dovecot-cert.pem /etc/pki/dovecot/
+    args:
+      chdir: /etc/pki/tls/certs/
+  - name: change key auth
+    command: restorecon -Rv /etc/pki/dovecot/
+  - name: restart dovecot
+    service:
+      name: dovecot
+      state: restarted
+  - name: reboot
+    command: reboot
+    ignore_errors: True

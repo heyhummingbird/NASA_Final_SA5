@@ -1,0 +1,9 @@
+[dovecot]
+enabled = true
+port = imaps
+action = iptables[name=dovecot, port=imaps, protocol=tcp]
+filter = dovecot
+logpath = /var/log/secure
+maxretry = 5
+findtime = 600
+bandtime = 3600

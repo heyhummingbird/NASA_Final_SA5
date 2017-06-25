@@ -1,0 +1,3 @@
+# Clients that should not be greylisted.  See postgrey(8).
+linux10.csie.org
+140.112.30.61

@@ -1,0 +1,17 @@
+---
+
+- include: init.yml
+
+- include: postfix.yml
+
+- include: dovecot.yml
+
+- include: ldap-server.yml
+
+- include: ldap-dovecot.yml
+
+- include: ldap-dovecot-client.yml
+
+- include: ldap-postfix-client.yml
+
+- include: roundcube.yml

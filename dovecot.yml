@@ -1,0 +1,94 @@
+- hosts: dov
+  tasks:
+    - name: install package
+      yum:
+        name: dovecot
+        state: latest
+    - name: modify dovecot.conf
+      template:
+        src: template/dovecot/dovecot.conf.j2
+        dest: /etc/dovecot/dovecot.conf
+    - name: modify 10-master.conf
+      template:
+        src: template/dovecot/10-master.conf.j2
+        dest: /etc/dovecot/conf.d/10-master.conf
+    - name: modify 10-auth.conf
+      template:
+        src: template/dovecot/10-auth.conf.j2
+        dest: /etc/dovecot/conf.d/10-auth.conf
+    - name: modify 10-mail.conf
+      template:
+        src: template/dovecot/10-mail.conf.j2
+        dest: /etc/dovecot/conf.d/10-mail.conf
+    - name: modify 10-ssl.conf
+      template:
+        src: template/dovecot/10-ssl.conf.j2
+        dest: /etc/dovecot/conf.d/10-ssl.conf
+# imaps
+    - name: create certification key
+      command: make dovecot-cert.pem
+      args:
+        chdir: /etc/pki/tls/certs/
+    - name: move key
+      command: mv dovecot-cert.pem /etc/pki/dovecot/
+      args:
+        chdir: /etc/pki/tls/certs/
+    - name: change key auth
+      command: restorecon -Rv /etc/pki/dovecot/
+    - name: enable and start dovecot
+      service:
+        name: dovecot
+        enabled: yes
+        state: started
+    - name: add imaps to firewall
+      command: firewall-cmd --add-service=imaps --permanent
+    - name: add port 24/tcp to firewall
+      command: firewall-cmd --add-port=24/tcp --permanent
+    - name: add port 24/udp to firewall
+      command: firewall-cmd --add-port=24/udp --permanent
+    - name: reload firewall
+      command: firewall-cmd --reload
+# fail2ban
+    - name: install epel-release package
+      yum:
+        name: epel-release
+        state: latest
+    - name: install fail2ban package
+      yum:
+        name: fail2ban
+        state: latest
+    - name: add ssh rule
+      template:
+        src: template/f2b/sshd.local.j2
+        dest: /etc/fail2ban/jail.d/sshd.local
+    - name: add dovecot rule
+      template:
+        src: template/f2b/dovecot.local.j2
+        dest: /etc/fail2ban/jail.d/dovecot.local
+    - name: enable and start fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+    - name: show result
+      command: fail2ban-client status
+      register: result
+    - name: print result
+      debug:
+        msg: "{{ result.stdout_lines }}"
+# ldap user
+    - name: create ldap users' home directory
+      file:
+        path: /home/shared/
+        state: directory
+        owner: mail
+        group: mail
+        mode: "770"
+    - name: create ldap users' home directory
+      file:
+        path: /home/shared/
+        state: directory
+        mode: "g+s" 
+    - name: disable SELinux
+      selinux:
+        state: disabled

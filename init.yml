@@ -1,0 +1,39 @@
+- name: initialization
+  hosts: servers
+  tasks:
+    - name: firewall
+      command: "{{ item.name }}"
+      with_items:
+        - { name: 'firewall-cmd --add-service=http --permanent'}
+        - { name: 'firewall-cmd --add-service=https --permanent'}
+        - { name: 'firewall-cmd --reload'}
+
+    - name: DNS 
+      shell: echo "nameserver 140.112.30.12" > /etc/resolv.conf      
+
+    - name: install vim, mailx
+      yum: 
+        name: vim, mailx
+        state: latest
+
+    - name: download get-pip
+      uri:
+        url: https://bootstrap.pypa.io/get-pip.py
+        method: GET
+        return_content: yes
+        dest: /root/get-pip.py
+
+    - name: install pip
+      command: python /root/get-pip.py
+      register: log
+
+    - debug: var=log.stdout_lines
+
+    - name: install pexpect for expect ansible module below
+      command: pip install pexpect       
+
+    - name: install net-tools
+      yum:
+        name: net-tools
+        state: latest
+

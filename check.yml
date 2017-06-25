@@ -1,0 +1,38 @@
+---
+
+- name: SEND MAIL
+  hosts: "{{ send }}"
+  tasks:
+    - name: send mail
+      shell: echo "" | mail -s "test "{{ num }}"" "{{ reci_user }}"
+
+- name: postfix log
+  hosts: ms1
+  tasks:
+    - shell: systemctl status postfix -l | tail -n 5
+      register: log
+    - debug:
+        var=log.stdout_lines
+
+- name: dovecot mail
+  hosts: dov
+  tasks:
+    - name: parse username
+      shell: echo "{{ reci_user }}" | sed 's/@.*//'
+      register: user   
+    - debug: var=user.stdout_lines
+    - name: get filename
+      shell: ls -t | head -n 1
+      args:
+        chdir: /home/shared/{{ user.stdout_lines[0] }}/Maildir/new
+      register: filename
+      ignore_errors: True
+    - command: cat "{{ filename.stdout_lines[0] }}"
+      args:
+        chdir: /home/shared/{{ user.stdout_lines[0] }}/Maildir/new
+      register: content
+      ignore_errors: True
+    - name: show content
+      debug:
+        var=content.stdout_lines
+      ignore_errors: True
